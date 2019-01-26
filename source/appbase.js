@@ -154,6 +154,12 @@ export class AppBase {
         
         return;
       }
+      if (instinfo.instswitch == '否') {
+        wx.reLaunch({
+          url: '/pages/content/content?keycode=kaiguan',
+        })
+
+      }
       AppBase.InstInfo=instinfo;
       this.Base.setMyData({ instinfo: instinfo });
       if (this.Base.pagetitle == null) {
