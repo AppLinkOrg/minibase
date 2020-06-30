@@ -18,13 +18,33 @@ import {
   WechatApi
 } from "apis/wechat.api";
 
+import {
+  PremisesApi
+} from "apis/premises.api.js";
+
 export class AppBase {
   static BRANDAPPLE = 12;
   static QQMAPKEY = "IDVBZ-TSAKD-TXG43-H442I-74KVK-6LFF5";
   static UserInfo = {};
   static InstInfo = {};
-  unicode = "dds";
+
+  static lastlat = 0;
+  static lastlng = 0;
+  static lastdistance = 0;
+  static lastaddress = {
+    address: {
+      ad_info: {
+        adcode: "",
+        city: ""
+      }
+    }
+  };
+  static CITYID = 440300;
+  static CITYNAME = "深圳市";
+  static CITYSET = false;
+  unicode = "znpf";
   needauth = false;
+  phone = null;
   pagetitle = null;
   app = null;
   options = null;
@@ -43,9 +63,9 @@ export class AppBase {
     //ApiConfig.SetToken("10e991a4ca7a93c60794628c11edaea3");
   }
   setPageTitle(instinfo) {
-    wx.setNavigationBarTitle({
-      title: instinfo.name,
-    })
+  //   wx.setNavigationBarTitle({
+  //     title: instinfo.name,
+  //   })
   }
   generateBodyJson() {
     var base = this;
@@ -108,20 +128,53 @@ export class AppBase {
       navtoPage: base.navtoPage,
       openContent: base.openContent,
       getPhoneNo: base.getPhoneNo,
+      getUserInfo: base.getUserInfo,
       dataReturn: base.dataReturn,
       dataReturnCallback: base.dataReturnCallback,
       loadtabtype: base.loadtabtype,
       contactkefu: base.contactkefu,
       contactweixin: base.contactweixin,
       download: base.download,
-      checkPermission: base.checkPermission
-
-
-
+      checkPermission: base.checkPermission,
+      recorderManager: base.recorderManager,
+      backtotop: base.backtotop,
+      xuanzechenshi: base.xuanzechenshi,
+      topage: base.topage,
+      shoucang: base.shoucang,
+      tishi: base.tishi,
+      tishi2: base.tishi2,
+      tishi3: base.tishi3,
+      clock: base.clock,
+      close: base.close,
+      search:base.search,
+      BackPage: base.BackPage,
+      toHome: base.toHome,
+      goarticle: base.goarticle,
+      addresscallback: base.addresscallback
     }
   }
   log() {
     console.log("yeah!");
+  }
+  search(){
+    wx.navigateTo({
+      url: '/pages/search/search',
+    })
+  }
+  xuanzechenshi() {
+    wx.navigateTo({
+      url: '/pages/xuanzechenshi/xuanzechenshi',
+    })
+  }
+  BackPage() {
+    wx.navigateBack({
+      delta: 1
+    });
+  }
+  toHome() {
+    wx.reLaunch({
+      url: '/pages/home/home',
+    })
   }
   onLoad(options) {
     this.Base.options = options;
@@ -129,11 +182,24 @@ export class AppBase {
     console.log("onload");
     this.Base.setBasicInfo();
     this.Base.setMyData({
-      options: options
+      options: options,
+      tishi: false,
+      tishi2: false,
+      tishi3: false
     });
 
     ApiConfig.SetUnicode(this.Base.unicode);
+
+
+
+
+
   }
+
+  addresscallback(res){
+    console.log("addresscallback",res);
+  }
+
   gotoOpenUserInfoSetting() {
     var that = this;
     wx.showModal({
@@ -151,6 +217,7 @@ export class AppBase {
       }
     })
   }
+
   setBasicInfo() {
     var that = this;
   }
@@ -160,23 +227,17 @@ export class AppBase {
   minimm
   onShow() {
     var that = this;
+    
     var instapi = new InstApi();
     instapi.resources({}, (res) => {
       this.Base.setMyData({
         res
       });
     });
-
     instapi.info({}, (instinfo) => {
       if (instinfo == null || instinfo == false) {
 
         return;
-      }
-      if (instinfo.instswitch == '否') {
-        wx.reLaunch({
-          url: '/pages/content/content?keycode=kaiguan',
-        })
-
       }
       AppBase.InstInfo = instinfo;
       this.Base.setMyData({
@@ -188,14 +249,18 @@ export class AppBase {
 
       }
     }, false);
-
+    console.log(AppBase.UserInfo.openid, 'instinfo')
     if (AppBase.UserInfo.openid == undefined) {
       // 登录
       console.log("onShow");
       wx.login({
         success: res => {
           // 发送 res.code 到后台换取 openId, sessionKey, unionId
+
+          console.log("res");
+
           console.log(res);
+
           wx.getUserInfo({
             success: userres => {
               AppBase.UserInfo = userres.userInfo;
@@ -216,12 +281,15 @@ export class AppBase {
                 //this.loadtabtype();
 
 
+                that.onMyShow();
                 memberapi.update(AppBase.UserInfo, () => {
 
                   console.log(AppBase.UserInfo);
                   that.Base.setMyData({
                     UserInfo: AppBase.UserInfo
                   });
+
+
 
                   that.checkPermission();
 
@@ -230,32 +298,43 @@ export class AppBase {
                 //that.Base.getAddress();
               });
             },
-            fail: faukres => {
-              var memberapi = new MemberApi();
+            fail: userloginres => {
+              console.log("auth fail");
+              console.log(userloginres);
               console.log(res);
+              var memberapi = new MemberApi();
               memberapi.getuserinfo({
                 code: res.code,
                 grant_type: "authorization_code"
               }, data => {
+                console.log("here");
                 console.log(data);
                 AppBase.UserInfo.openid = data.openid;
                 AppBase.UserInfo.session_key = data.session_key;
+                console.log(AppBase.UserInfo);
                 ApiConfig.SetToken(data.openid);
+                console.log("goto update info");
+
+                that.onMyShow();
                 memberapi.update(AppBase.UserInfo, () => {
                   if (this.Base.needauth == true) {
-                    wx.redirectTo({
-                      url: '/pages/auth/auth',
-                    })
+                    // wx.redirectTo({
+                    //   url: '/pages/auth/auth',
+                    // })
                   } else {
                     that.onMyShow();
                   }
                 });
-              });
 
+
+              });
+              //that.getAddress();
             }
-          })
+          });
+
         }
-      });
+      })
+
       return false;
     } else {
       if (that.setMyData != undefined) {
@@ -273,6 +352,7 @@ export class AppBase {
         UserInfo: AppBase.UserInfo
       });
 
+      that.onMyShow();
       that.checkPermission();
     }
 
@@ -280,19 +360,24 @@ export class AppBase {
   checkPermission() {
     var memberapi = new MemberApi();
     var that = this;
-    memberapi.info({}, (info) => {
-      if (info.mobile == "" && this.Base.needauth == true) {
-        wx.navigateTo({
-          url: '/pages/auth/auth',
-        })
-      } else {
 
-        this.Base.setMyData({
-          memberinfo: info
-        });
-        that.onMyShow();
-      }
+    memberapi.info({}, (info) => {
+      this.Base.setMyData({
+        memberinfo: info
+      });
     });
+
+    this.Base.getAddress((res)=>{
+      console.log("resssssss",res);
+      this.addresscallback(res);
+      //this.Base.setMyData({cityname:res.address_component.city})
+      this.Base.setMyData({cityname:AppBase.CITYNAME})
+    },(failres)=>{
+      console.log("failres", failres);
+    });
+    
+    that.onMyShow();
+
   }
   loadtabtype() {
     console.log("loadtabtype");
@@ -319,7 +404,6 @@ export class AppBase {
   }
   onShareAppMessage() {
 
-
   }
 
   dataReturn(data) {
@@ -345,24 +429,54 @@ export class AppBase {
   }
   getPhoneNo(e) {
     var that = this;
-    console.log(e);
+
     var api = new WechatApi();
-    var data = this.Base.getMyData();
-    console.log(data);
 
     e.detail.session_key = AppBase.UserInfo.session_key;
     e.detail.openid = AppBase.UserInfo.openid;
-    console.log(e.detail);
+
     api.decrypteddata(e.detail, (ret) => {
-      console.log(ret);
-      that.phonenoCallback(ret.return.phoneNumber, e);
+      console.log(ret, '最最最');
+
+      that.phonenoCallback(ret.return.phoneNumber, e, ret.code);
+
     });
   }
-  phonenoCallback(phoneno, e) {
-    console.log("phone no callback");
-    console.log(phoneno);
-    console.log(e);
+  phonenoCallback(mobile, e, result) {
+
+    if (result == '0') {
+      var memberapi = new MemberApi();
+      memberapi.updateshouji({
+        mobile: mobile
+      }, (updatetouxiang) => {
+
+        var memberapi = new MemberApi();
+
+        var that = this;
+        memberapi.info({}, (info) => {
+          this.Base.setMyData({
+            memberinfo: info
+          });
+
+          this.Base.setMyData({
+            mobile: mobile
+          });
+
+          wx.showToast({
+            title: '获取成功',
+            icon: 'none'
+          })
+
+        });
+
+        //this.checkPermission();
+      });
+    } else {
+      console.log('不出来')
+    }
+
   }
+
   viewPhoto(e) {
     var img = e.currentTarget.id;
     console.log(img);
@@ -388,7 +502,7 @@ export class AppBase {
       phoneNumber: tel
     })
   }
-  getAddress(callback, lat, lng) {
+  getAddress(callback, failcallback, lat, lng) {
     var that = this;
     if (AppBase.QQMAP == null) {
       var QQMapWX = require('libs/qqmap/qqmap-wx-jssdk.js');
@@ -421,6 +535,13 @@ export class AppBase {
               console.log(res);
             }
           });
+        },
+        fail: function(res) {
+          console.log("fail open location");
+          console.log(res);
+          if (failcallback != undefined) {
+            failcallback();
+          }
         }
       });
     } else {
@@ -479,17 +600,22 @@ export class AppBase {
       }
     });
   }
-  uploadFile(modul, filename, callback) {
+  uploadFile(modul, filename, lujin, callback) {
+    //console.log(8888888888);
 
     var tempFilePaths = filename
+    var lujin = lujin;
+    console.log("ssssssssssss" + tempFilePaths);
+    console.log(lujin);
     wx.uploadFile({
       url: ApiConfig.GetFileUploadAPI(), //仅为示例，非真实的接口地址
-      filePath: tempFilePaths,
+      filePath: lujin,
       name: 'file',
       formData: {
         'module': modul,
         "field": "file"
       },
+
       success: function(res) {
         console.log(res);
         var data = res.data
@@ -508,6 +634,7 @@ export class AppBase {
       }
     });
   }
+
   uploadImage(modul, callback, count = 1, completecallback) {
     wx.chooseImage({
       sizeType: ['original', 'compressed'], // 可以指定是原图还是压缩图，默认二者都有
@@ -857,11 +984,15 @@ export class AppBase {
         // 只要服务器有响应数据，就会把响应内容写入文件并进入 success 回调，业务需要自行判断是否下载到了想要的内容
         if (res.statusCode === 200) {
           var tempFilePath = res.tempFilePath;
-          console.log(tempFilePath);
-          wx.saveImageToPhotosAlbum({
-            filePath: tempFilePath,
+          console.log("tempFilePath", tempFilePath);
+          wx.saveFile({
+            tempFilePath: tempFilePath,
+            fail: function(savefail) {
+              console.log("savefail", savefail);
+            },
             success: function(res) {
               var savedFilePath = res.savedFilePath;
+              console.log("savedFilePath", savedFilePath, res);
               if (open == true) {
                 wx.openDocument({
                   filePath: savedFilePath,
@@ -921,4 +1052,146 @@ export class AppBase {
       icon: "none"
     })
   }
+  backtotop() {
+    console.log("backtotop");
+    wx.pageScrollTo({
+      scrollTop: 0,
+      duration: 300
+    })
+  }
+
+  tishi() {
+    this.Base.setMyData({
+      tishi: true
+    })
+  }
+  tishi2() {
+    this.Base.setMyData({
+      tishi2: true
+    })
+  }
+  tishi3() {
+    this.Base.setMyData({
+      tishi3: true
+    })
+  }
+  close() {
+    this.Base.setMyData({
+      tishi: false,
+      tishi2: false,
+      tishi3: false,
+      tishi4: false
+    })
+  }
+
+  clock() {
+    this.Base.setMyData({
+      clock: true
+    })
+  }
+
+
+  getUserInfo() {
+    var that = this;
+    var memberapi = new MemberApi();
+    wx.getUserInfo({
+      success: userres => {
+        var openid = AppBase.UserInfo.openid;
+        var session_key = AppBase.UserInfo.session_key;
+        AppBase.UserInfo = userres.userInfo;
+        AppBase.UserInfo.openid = openid;
+        AppBase.UserInfo.session_key = session_key;
+        console.log("loginres4", userres);
+        console.log(this.Base.getMyData().memberinfo, '11');
+        var memberinfo = this.Base.getMyData().memberinfo;
+
+        var api = new WechatApi();
+        api.decrypteddata({
+          iv: userres.iv,
+          encryptedData: userres.encryptedData
+        }, ret => {
+          AppBase.jump = true;
+          AppBase.UserInfo.unionid = ret.return.openId;
+          ApiConfig.SetToken(ret.return.openId);
+          console.log("loginres5", ret);
+          console.log("loginres6", AppBase.UserInfo);
+          var json = null;
+          json = AppBase.UserInfo;
+          json.primary_id = memberinfo.id;
+          memberapi.update(json, () => {
+
+            console.log(AppBase.UserInfo);
+            that.Base.setMyData({
+              UserInfo: AppBase.UserInfo
+            });
+
+            memberapi.info({}, (info) => {
+              this.Base.setMyData({
+                memberinfo: info
+              });
+            })
+          });
+        });
+
+      },
+      fail: userloginres => {
+        console.log("auth fail");
+        console.log(userloginres);
+
+        if (that.Base.needauth == true) {
+
+        }
+        
+      }
+    })
+  }
+
+  topage(e) {
+    var name = e.currentTarget.dataset.name;
+    var id = e.currentTarget.id;
+
+    wx.navigateTo({
+      url: '/pages/' + name + '/' + name + '?id=' + id
+    })
+
+  }
+
+
+  shoucang(e) {
+    var premisesapi = new PremisesApi();
+    var id = e.currentTarget.id;
+
+    premisesapi.shoucang({
+      premises_id: id
+    }, ret => {
+      console.log(ret);
+      if (ret.code == 0) {
+        this.Base.toast('收藏成功');
+      } else if (ret.code == 1) {
+        this.Base.toast('取消收藏');
+      } else {
+        this.Base.toast('操作失败');
+      }
+
+      this.onMyShow();
+    })
+
+
+  }
+
+
+  goarticle(e) {
+    //bindtap="goarticle" data-iszn="{{item.iszn_value}}" data-url="{{item.url}}" 
+    console.log(e);
+    var iszn = e.currentTarget.dataset.iszn;
+    var url = e.currentTarget.dataset.url;
+    if (iszn != "Y") {
+      url = "https://uat6.helpfooter.com/articleload/index.php?url=" + url;
+    }
+    url = encodeURIComponent(url);
+    wx.navigateTo({
+      url: '/pages/article/article?url=' + url,
+    })
+  }
+
 }
