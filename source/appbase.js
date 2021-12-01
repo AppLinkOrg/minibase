@@ -18,6 +18,8 @@ import {
   WechatApi
 } from "apis/wechat.api";
 
+
+
 export class AppBase {
   static BRANDAPPLE = 12;
   static QQMAPKEY = "IDVBZ-TSAKD-TXG43-H442I-74KVK-6LFF5";
@@ -38,7 +40,7 @@ export class AppBase {
   static CITYID = 440300;
   static CITYNAME = "深圳市";
   static CITYSET = false;
-  unicode = "znpf";
+  unicode = "pulian";
   needauth = false;
   phone = null;
   pagetitle = null;
@@ -146,7 +148,16 @@ export class AppBase {
       BackPage: base.BackPage,
       toHome: base.toHome,
       goarticle: base.goarticle,
-      addresscallback: base.addresscallback
+      addresscallback: base.addresscallback,
+
+      btnClick : base.btnClick,
+      btnClickTo : base.btnClickTo,
+      start : base.start,
+      fadeInDlg:base.fadeInDlg,
+      fadeOutDlg:base.fadeOutDlg,
+      preventTouchMove:base.preventTouchMove,
+      ketai:base.ketai,
+      ketai1:base.ketai1,
     }
   }
   log() {
@@ -176,6 +187,7 @@ export class AppBase {
     this.Base.options = options;
     console.log(options);
     console.log("onload");
+    this.start();
     this.Base.setBasicInfo();
     this.Base.setMyData({
       options: options,
@@ -256,8 +268,10 @@ export class AppBase {
           console.log("res");
 
           console.log(res);
-
+          // getUserInfo
+          // getUserProfile
           wx.getUserInfo({
+            desc: '用于完善会员资料',
             success: userres => {
               AppBase.UserInfo = userres.userInfo;
               console.log(userres);
@@ -278,19 +292,14 @@ export class AppBase {
 
 
                 that.onMyShow();
-                memberapi.update(AppBase.UserInfo, () => {
-
-                  console.log(AppBase.UserInfo);
-                  that.Base.setMyData({
-                    UserInfo: AppBase.UserInfo
-                  });
-
-
-
-                  that.checkPermission();
-
-                });
-
+                // memberapi.update(AppBase.UserInfo, () => {
+                //   console.log(AppBase.UserInfo);
+                //   that.Base.setMyData({
+                //     UserInfo: AppBase.UserInfo
+                //   });
+                //   that.checkPermission();
+                // });
+                that.checkPermission();
                 //that.Base.getAddress();
               });
             },
@@ -312,15 +321,15 @@ export class AppBase {
                 console.log("goto update info");
 
                 that.onMyShow();
-                memberapi.update(AppBase.UserInfo, () => {
-                  if (this.Base.needauth == true) {
-                    // wx.redirectTo({
-                    //   url: '/pages/auth/auth',
-                    // })
-                  } else {
-                    that.onMyShow();
-                  }
-                });
+                // memberapi.update(AppBase.UserInfo, () => {
+                //   if (this.Base.needauth == true) {
+                //     // wx.redirectTo({
+                //     //   url: '/pages/auth/auth',
+                //     // })
+                //   } else {
+                //     that.onMyShow();
+                //   }
+                // });
 
 
               });
@@ -349,11 +358,12 @@ export class AppBase {
       });
 
       that.onMyShow();
-      that.checkPermission();
+      // that.checkPermission();
     }
-
+    that.checkPermission();
   }
   checkPermission() {
+    console.log('checkPermission')
     var memberapi = new MemberApi();
     var that = this;
 
@@ -371,6 +381,8 @@ export class AppBase {
     },(failres)=>{
       console.log("failres", failres);
     });
+
+
     
     that.onMyShow();
 
@@ -378,7 +390,7 @@ export class AppBase {
   loadtabtype() {
     console.log("loadtabtype");
     var memberapi = new MemberApi();
-    memberapi.update(AppBase.UserInfo, () => {});
+    // memberapi.update(AppBase.UserInfo, () => {});
   }
 
   onMyShow() {
@@ -435,6 +447,7 @@ export class AppBase {
       console.log(ret, '最最最');
 
       that.phonenoCallback(ret.return.phoneNumber, e, ret.code);
+      console.log(ret.return.phoneNumber,'phoneNumber')
 
     });
   }
@@ -1090,7 +1103,18 @@ export class AppBase {
   getUserInfo() {
     var that = this;
     var memberapi = new MemberApi();
-    wx.getUserInfo({
+    // var memberinfo = this.Base.getMyData().memberinfo
+    // if (memberinfo == null) {
+    //   memberapi.info({}, (info) => {
+    //     this.Base.setMyData({
+    //       memberinfo: info
+    //     });
+    //   })
+    // }
+    // getUserInfo
+    // getUserProfile
+    wx.getUserProfile({
+      desc: '用于完善会员资料',
       success: userres => {
         var openid = AppBase.UserInfo.openid;
         var session_key = AppBase.UserInfo.session_key;
@@ -1098,36 +1122,53 @@ export class AppBase {
         AppBase.UserInfo.openid = openid;
         AppBase.UserInfo.session_key = session_key;
         console.log("loginres4", userres);
+        
         console.log(this.Base.getMyData().memberinfo, '11');
         var memberinfo = this.Base.getMyData().memberinfo;
+        var json = null;
+          json = AppBase.UserInfo;
+        memberapi.update(json, () => {
+          console.log(AppBase.UserInfo);
+          that.Base.setMyData({
+            UserInfo: AppBase.UserInfo
+          });
+
+          memberapi.info({}, (info) => {
+            this.Base.setMyData({
+              memberinfo: info
+            });
+          })
+        });
+
 
         var api = new WechatApi();
-        api.decrypteddata({
-          iv: userres.iv,
-          encryptedData: userres.encryptedData
-        }, ret => {
-          AppBase.jump = true;
-          AppBase.UserInfo.unionid = ret.return.openId;
-          ApiConfig.SetToken(ret.return.openId);
-          console.log("loginres5", ret);
-          console.log("loginres6", AppBase.UserInfo);
-          var json = null;
-          json = AppBase.UserInfo;
-          json.primary_id = memberinfo.id;
-          memberapi.update(json, () => {
+        // api.decrypteddata({
+        //   iv: userres.iv,
+        //   encryptedData: userres.encryptedData
+        // }, ret => {
+        //   AppBase.jump = true;
+        //   AppBase.UserInfo.unionid = ret.return.openId;
+        //   ApiConfig.SetToken(ret.return.openId);
+        //   console.log("loginres5", ret);
+        //   console.log("loginres6", AppBase.UserInfo);
+        //   var json = null;
+        //   json = AppBase.UserInfo;
+          
+        //   json.primary_id = memberinfo.id;
+        //   memberapi.update(json, () => {
+        //     console.log(AppBase.UserInfo);
+        //     that.Base.setMyData({
+        //       UserInfo: AppBase.UserInfo
+        //     });
 
-            console.log(AppBase.UserInfo);
-            that.Base.setMyData({
-              UserInfo: AppBase.UserInfo
-            });
+        //     memberapi.info({}, (info) => {
+        //       this.Base.setMyData({
+        //         memberinfo: info
+        //       });
+        //     })
+        //   });
 
-            memberapi.info({}, (info) => {
-              this.Base.setMyData({
-                memberinfo: info
-              });
-            })
-          });
-        });
+        // });
 
       },
       fail: userloginres => {
@@ -1166,5 +1207,203 @@ export class AppBase {
       url: '/pages/article/article?url=' + url,
     })
   }
+
+  btnClickTo() {
+    this.Base.setMyData({popup:true});
+    
+    var animation = wx.createAnimation({
+      transformOrigin: "50% 50%",
+      duration: 400,
+      timingFunction: "ease",
+      delay: 0
+    })
+    // this.animation = animation
+    animation.translateY(0).step()
+    this.setData({
+      animation: animation.export()
+    })
+   
+  }
+  btnClick () {
+    this.Base.setMyData({popup:false}); 
+    var animation = wx.createAnimation({
+      transformOrigin: "50% 50%",
+      duration: 400,
+      timingFunction: "ease",
+      delay: 0
+    })
+    // this.animation = animation
+    animation.translateY(1000).step()
+    this.setData({
+      animation: animation.export(),
+      
+    })
+    
+    
+  }
+  start(){
+    var  animation = wx.createAnimation({
+      transformOrigin: "0% 0%",
+      duration: 0,
+      timingFunction: "linear",
+      delay: 0
+    }) 
+    animation.translateY(1000).step()
+    this.setData({
+      animation: animation.export(),
+    })
+  }
+  fadeInDlg(){ 
+    var animation = wx.createAnimation({
+      duration:0,
+      timingFunction:'step-start',
+    })
+    animation.opacity(0).scale(0.8,0.8).step();
+    this.setData({
+      animationData: animation.export()
+    })
+    animation = wx.createAnimation({
+      duration: 500,
+      timingFunction: 'ease',
+    })
+    animation.opacity(1).scale(1,1).step()
+    this.setData({
+      animationData:animation.export()
+    })
+
+    var animationBg = wx.createAnimation({
+      duration: 500,
+      timingFunction: 'step-start',
+    })
+    animationBg.opacity(0).step()
+    animationBg = wx.createAnimation({
+      duration:500,
+      timingFunction:'ease',
+    })
+    animationBg.opacity(0.5).step()
+    this.setData({
+      animationBgData:animationBg.export()
+    })
+  }
+  fadeOutDlg(){
+    var _this = this
+    var animation = wx.createAnimation({
+      duration:200,
+      timingFunction:'ease',
+    })
+    animation.opacity(0).scale(0.8, 0.8).step();
+    this.setData({
+      animationData:animation.export()
+    })
+
+    var animationBg = wx.createAnimation({
+      duration: 200,
+      timingFunction: 'ease',
+    })
+    animationBg.opacity(0).step()
+    this.setData({
+      animationBgData: animationBg.export()
+    })
+
+ 
+  }
+  preventTouchMove() {
+    //阻止触摸
+  }
+  ketai(e){
+    var id = e.currentTarget.id;
+    wx.navigateTo({
+      url: '/pages/playtate/playtate?id='+id,
+    })
+  }
+  ketai1(e){
+    var id = e.currentTarget.id;
+    wx.navigateTo({
+      url: '/pages/gueststate/gueststate?id='+id,
+    })
+  }
+
+
+//    withData(param){
+//     return param < 10 ? '0' + param : '' + param;
+//      }
+//      getLoopArray(start,end){
+//        var start = start || 0;
+//      var end = end || 1;
+//      var array = [];
+//       for (var i = start; i <= end; i++) {
+//         array.push(withData(i));
+//   }
+//       return array;
+//    }
+//     getMonthDay(year,month){
+//       var flag = year % 400 == 0 || (year % 4 == 0 && year % 100 != 0), array = null;
+   
+//      switch (month) {
+//       case '01':
+//        case '03':
+//        case '05':
+//         case '07':
+//         case '08':
+//         case '10':
+//        case '12':
+//           array = getLoopArray(1, 31)
+//           break;
+//        case '04':
+//     case '06':
+//       case '09':
+//     case '11':
+//        array = getLoopArray(1, 30)
+//       break;
+//      case '02':
+//      array = flag ? getLoopArray(1, 29) : getLoopArray(1, 28)
+//        break;
+//      default:
+//      array = '月份格式不正确，请重新输入！'
+//    }
+//   return array;
+//  }
+//   getNewDateArry(){
+//    // 当前时间的处理
+//    var newDate = new Date();
+//    var year = withData(newDate.getFullYear()),
+//       mont = withData(newDate.getMonth() + 1),
+//        date = withData(newDate.getDate()),
+//        hour = withData(newDate.getHours()),
+//        minu = withData(newDate.getMinutes()),
+//         seco = withData(newDate.getSeconds());
+
+//    return [year, mont, date, hour, minu, seco];
+//  }
+//   dateTimePicker(startYear,endYear,date) {
+//   // 返回默认显示的数组和联动数组的声明
+//    var dateTime = [], dateTimeArray = [[],[],[],[],[],[]];
+//    var start = startYear || 1978;
+//    var end = endYear || 2100;
+//    // 默认开始显示数据
+//     var defaultDate = date ? [...date.split(' ')[0].split('-'), ...date.split(' ')[1].split(':')] : getNewDateArry();
+//    // 处理联动列表数据
+//    /*年月日 时分秒*/ 
+//    dateTimeArray[0] = getLoopArray(start,end);
+//   dateTimeArray[1] = getLoopArray(1, 12);
+//   dateTimeArray[2] = getMonthDay(defaultDate[0], defaultDate[1]);
+//   dateTimeArray[3] = getLoopArray(0, 23);
+//    dateTimeArray[4] = getLoopArray(0, 59);
+//    dateTimeArray[5] = getLoopArray(0, 59);
+
+//    dateTimeArray.forEach((current,index) => {
+//      dateTime.push(current.indexOf(defaultDate[index]));
+//    });
+ 
+//    return {
+//      dateTimeArray: dateTimeArray,
+//      dateTime: dateTime
+//    }
+//  }
+//  module.exports = {
+//    dateTimePicker: dateTimePicker,
+//   getMonthDay: getMonthDay
+//   }
+
 
 }
